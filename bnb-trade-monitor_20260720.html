@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BNB Trade Monitor</title>
+<style>
+  :root{
+    --bg:#0B0E11;
+    --panel:#161A1E;
+    --panel2:#1E2329;
+    --line:#2B3139;
+    --text:#EAECEF;
+    --muted:#848E9C;
+    --gold:#F0B90B;
+    --green:#0ECB81;
+    --red:#F6465D;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',-apple-system,'Segoe UI',sans-serif;
+    min-height:100vh;
+    padding-bottom:40px;
+  }
+  .mono{font-family:'JetBrains Mono','SF Mono',Consolas,monospace;}
+
+  /* Ticker tape */
+  .ticker-wrap{
+    background:var(--panel2);
+    border-bottom:1px solid var(--line);
+    overflow:hidden;
+    white-space:nowrap;
+    padding:8px 0;
+  }
+  .ticker{
+    display:inline-block;
+    padding-left:100%;
+    animation:scroll 22s linear infinite;
+  }
+  .ticker span{
+    display:inline-block;
+    padding:0 20px;
+    font-size:12px;
+    letter-spacing:0.3px;
+  }
+  @keyframes scroll{
+    0%{transform:translateX(0);}
+    100%{transform:translateX(-100%);}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .ticker{animation:none; padding-left:0;}
+  }
+
+  header{
+    padding:20px 16px 12px;
+  }
+  .eyebrow{
+    font-size:11px;
+    color:var(--gold);
+    text-transform:uppercase;
+    letter-spacing:1.5px;
+    margin-bottom:4px;
+  }
+  h1{
+    font-size:22px;
+    font-weight:700;
+  }
+  .sub{
+    color:var(--muted);
+    font-size:13px;
+    margin-top:2px;
+  }
+
+  .status-bar{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin:14px 16px 0;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:14px 16px;
+  }
+  .status-left{display:flex; align-items:center; gap:10px;}
+  .dot{
+    width:9px; height:9px; border-radius:50%;
+    background:var(--green);
+    box-shadow:0 0 8px var(--green);
+  }
+  .dot.off{background:var(--muted); box-shadow:none;}
+  .holding-label{font-size:12px; color:var(--muted);}
+  .holding-value{font-size:16px; font-weight:700;}
+  .price-value{font-size:16px; font-weight:700; font-family:'JetBrains Mono',monospace;}
+
+  .grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    margin:12px 16px;
+  }
+  .card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:14px;
+  }
+  .card .label{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px;}
+  .card .value{font-size:20px; font-weight:700; margin-top:6px; font-family:'JetBrains Mono',monospace;}
+  .value.pos{color:var(--green);}
+  .value.neg{color:var(--red);}
+
+  .section-title{
+    margin:22px 16px 8px;
+    font-size:13px;
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:1px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+  }
+
+  .chart-wrap{
+    margin:0 16px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:14px;
+  }
+  canvas{width:100%; display:block;}
+
+  .trade-list{
+    margin:0 16px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:10px;
+    overflow:hidden;
+  }
+  .trade-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:12px 14px;
+    border-bottom:1px solid var(--line);
+  }
+  .trade-row:last-child{border-bottom:none;}
+  .trade-left{display:flex; align-items:center; gap:10px;}
+  .side-tag{
+    font-size:11px;
+    font-weight:700;
+    padding:3px 8px;
+    border-radius:5px;
+    letter-spacing:0.5px;
+  }
+  .side-tag.buy{background:rgba(14,203,129,0.15); color:var(--green);}
+  .side-tag.sell{background:rgba(246,70,93,0.15); color:var(--red);}
+  .trade-meta{font-size:12px; color:var(--muted); margin-top:2px;}
+  .trade-right{text-align:right;}
+  .trade-price{font-family:'JetBrains Mono',monospace; font-size:14px;}
+  .trade-pnl{font-size:12px; margin-top:2px; font-family:'JetBrains Mono',monospace;}
+
+  .empty{
+    padding:30px 16px;
+    text-align:center;
+    color:var(--muted);
+    font-size:13px;
+  }
+
+  .config{
+    margin:24px 16px 0;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:14px;
+  }
+  .config .label{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;}
+  .config-row{display:flex; gap:8px;}
+  input[type=text]{
+    flex:1;
+    background:var(--panel2);
+    border:1px solid var(--line);
+    color:var(--text);
+    border-radius:8px;
+    padding:10px 12px;
+    font-size:13px;
+  }
+  input[type=text]:focus{outline:2px solid var(--gold); outline-offset:1px;}
+  button{
+    background:var(--gold);
+    color:#0B0E11;
+    border:none;
+    border-radius:8px;
+    padding:10px 16px;
+    font-weight:700;
+    font-size:13px;
+    cursor:pointer;
+  }
+  button:focus-visible{outline:2px solid var(--text); outline-offset:2px;}
+  button.secondary{
+    background:transparent;
+    border:1px solid var(--line);
+    color:var(--muted);
+  }
+  .config-note{font-size:11px; color:var(--muted); margin-top:8px; line-height:1.5;}
+  .refresh-row{display:flex; justify-content:space-between; align-items:center; margin:14px 16px 0;}
+  .last-updated{font-size:11px; color:var(--muted);}
+
+  .heartbeat{font-size:11px; color:var(--muted); margin:8px 16px 0;}
+
+  .range-row{
+    display:flex;
+    gap:8px;
+    margin:16px 16px 0;
+    overflow-x:auto;
+    padding-bottom:2px;
+  }
+  .chip{
+    background:var(--panel);
+    border:1px solid var(--line);
+    color:var(--muted);
+    border-radius:999px;
+    padding:7px 14px;
+    font-size:12px;
+    font-weight:600;
+    white-space:nowrap;
+    cursor:pointer;
+    flex-shrink:0;
+  }
+  .chip.active{background:var(--gold); border-color:var(--gold); color:#0B0E11;}
+
+  .alltime-note{margin:8px 16px 0; font-size:11px; color:var(--muted);}
+
+  .card .sub{font-size:11px; color:var(--muted); margin-top:4px;}
+
+  .daily-table{
+    margin:0 16px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:10px;
+    overflow:hidden;
+  }
+  .daily-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:10px 14px;
+    border-bottom:1px solid var(--line);
+    font-size:12px;
+  }
+  .daily-row:last-child{border-bottom:none;}
+  .daily-date{color:var(--text); font-weight:600;}
+  .daily-meta{color:var(--muted); margin-top:2px; font-size:11px;}
+  .daily-right{text-align:right; font-family:'JetBrains Mono',monospace;}
+
+  .vs-wrap{
+    margin:0 16px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:14px;
+  }
+  .vs-verdict{
+    text-align:center;
+    font-size:13px;
+    font-weight:700;
+    padding:10px;
+    border-radius:8px;
+    margin-bottom:12px;
+  }
+  .vs-verdict.pending{background:rgba(132,142,156,0.12); color:var(--muted); font-weight:600;}
+  .vs-verdict.real{background:rgba(240,185,11,0.12); color:var(--gold);}
+  .vs-verdict.shadow{background:rgba(132,142,156,0.2); color:var(--text);}
+  .vs-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .vs-col{background:var(--panel2); border-radius:8px; padding:12px;}
+  .vs-col-label{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;}
+  .vs-stat{display:flex; justify-content:space-between; margin-top:6px; font-size:12px;}
+  .vs-stat-label{color:var(--muted);}
+  .vs-stat-value{font-family:'JetBrains Mono',monospace; font-weight:700;}
+  .vs-note{font-size:11px; color:var(--muted); margin-top:10px; line-height:1.5;}
+</style>
+</head>
+<body>
+
+<div class="ticker-wrap">
+  <div class="ticker mono" id="tickerContent">
+    <span>กำลังโหลดข้อมูล...</span>
+  </div>
+</div>
+
+<header>
+  <div class="eyebrow">Mi 10T Pro · Termux Bot</div>
+  <h1>BNB Trade Monitor</h1>
+  <div class="sub" id="dateLabel">—</div>
+</header>
+
+<div class="status-bar">
+  <div class="status-left">
+    <div class="dot" id="statusDot"></div>
+    <div>
+      <div class="holding-label">ถืออยู่ตอนนี้</div>
+      <div class="holding-value" id="holdingValue">—</div>
+    </div>
+  </div>
+  <div style="text-align:right;">
+    <div class="holding-label">ราคา BNB/USDT</div>
+    <div class="price-value" id="priceValue">—</div>
+  </div>
+</div>
+
+<div class="heartbeat" id="heartbeatLine">เทรดล่าสุด: —</div>
+
+<div class="range-row" id="rangeRow">
+  <div class="chip active" data-range="today">วันนี้</div>
+  <div class="chip" data-range="3d">3 วัน</div>
+  <div class="chip" data-range="7d">7 วัน</div>
+  <div class="chip" data-range="30d">30 วัน</div>
+  <div class="chip" data-range="all">ทั้งหมด</div>
+</div>
+<div class="range-row" id="currencyRow" style="margin-top:8px;">
+  <div class="chip active" data-currency="USD">USD</div>
+  <div class="chip" data-currency="THB">THB</div>
+</div>
+<div class="alltime-note" id="allTimeNote">รวมทั้งหมด: — เทรด | กำไรสะสม —%</div>
+
+<div class="grid">
+  <div class="card">
+    <div class="label">มูลค่าพอร์ตปัจจุบัน</div>
+    <div class="value" id="statWalletValue">—</div>
+  </div>
+  <div class="card">
+    <div class="label">กำไร/ขาดทุนที่ยังไม่รับรู้</div>
+    <div class="value" id="statUnrealized">—</div>
+    <div class="sub" id="statUnrealizedSub"></div>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <div class="label">จำนวนเทรด</div>
+    <div class="value" id="statTrades">0</div>
+  </div>
+  <div class="card">
+    <div class="label">กำไรสะสม (ช่วงนี้)</div>
+    <div class="value" id="statPnl">0.00%</div>
+  </div>
+  <div class="card">
+    <div class="label">Win Rate</div>
+    <div class="value" id="statWinRate">—</div>
+    <div class="sub" id="statWinRateSub"></div>
+  </div>
+  <div class="card">
+    <div class="label">กำไรเฉลี่ย/เทรด</div>
+    <div class="value" id="statAvgPnl">—</div>
+  </div>
+  <div class="card">
+    <div class="label">เทียบซื้อเก็บเฉยๆ</div>
+    <div class="value" id="statBuyHold">—</div>
+    <div class="sub" id="statBuyHoldSub"></div>
+  </div>
+  <div class="card">
+    <div class="label">แพ้ติดต่อกันสูงสุด</div>
+    <div class="value" id="statLoseStreak">—</div>
+  </div>
+  <div class="card">
+    <div class="label">ไม้ที่ดีสุด</div>
+    <div class="value" id="statBestTrade">—</div>
+    <div class="sub" id="statBestTradeSub"></div>
+  </div>
+  <div class="card">
+    <div class="label">ไม้ที่แย่สุด</div>
+    <div class="value" id="statWorstTrade">—</div>
+    <div class="sub" id="statWorstTradeSub"></div>
+  </div>
+  <div class="card">
+    <div class="label">ค่าธรรมเนียมสะสม</div>
+    <div class="value" id="statFeeTotal">—</div>
+    <div class="sub" id="statFeeTotalSub"></div>
+  </div>
+  <div class="card">
+    <div class="label">ระยะเวลาถือไม้เฉลี่ย</div>
+    <div class="value" id="statAvgHoldTime">—</div>
+  </div>
+  <div class="card">
+    <div class="label">Drawdown สูงสุด (จากจุดสูงสุด)</div>
+    <div class="value" id="statMaxDrawdown">—</div>
+    <div class="sub" id="statMaxDrawdownSub"></div>
+  </div>
+</div>
+
+<div class="section-title">กำไรสะสม (Cumulative PnL)</div>
+<div class="chart-wrap">
+  <canvas id="pnlChart" height="140"></canvas>
+</div>
+
+<div class="section-title">
+  <span>ประวัติการเทรด</span>
+  <span id="exportBtn" style="cursor:pointer; color:var(--gold); font-size:12px; font-weight:700;">⬇ Export CSV</span>
+</div>
+<div class="trade-list" id="tradeList">
+  <div class="empty">ยังไม่มีข้อมูลการเทรด</div>
+</div>
+
+<div class="section-title">
+  <span>🔒 Fixed (จริง) vs 📐 Dynamic (เงา)</span>
+</div>
+<div class="vs-wrap" id="vsWrap">
+  <div class="vs-verdict pending" id="vsVerdict">ยังไม่มีข้อมูลพอเทียบ</div>
+  <div class="vs-grid">
+    <div class="vs-col">
+      <div class="vs-col-label">🔒 Fixed (เงินจริง)</div>
+      <div class="vs-stat"><span class="vs-stat-label">เทรดปิดแล้ว</span><span class="vs-stat-value" id="vsRealTrades">0</span></div>
+      <div class="vs-stat"><span class="vs-stat-label">กำไรสะสม</span><span class="vs-stat-value" id="vsRealPnl">0.00%</span></div>
+      <div class="vs-stat"><span class="vs-stat-label">Win Rate</span><span class="vs-stat-value" id="vsRealWin">—</span></div>
+    </div>
+    <div class="vs-col">
+      <div class="vs-col-label">📐 Dynamic (จำลอง)</div>
+      <div class="vs-stat"><span class="vs-stat-label">เทรดปิดแล้ว</span><span class="vs-stat-value" id="vsShadowTrades">0</span></div>
+      <div class="vs-stat"><span class="vs-stat-label">กำไรสะสม</span><span class="vs-stat-value" id="vsShadowPnl">0.00%</span></div>
+      <div class="vs-stat"><span class="vs-stat-label">Win Rate</span><span class="vs-stat-value" id="vsShadowWin">—</span></div>
+    </div>
+  </div>
+  <div class="vs-note" id="vsNote"></div>
+</div>
+
+<div class="section-title">
+  <span>สรุปรายวัน</span>
+</div>
+<div class="daily-table" id="dailyTable">
+  <div class="empty">ยังไม่มีข้อมูล</div>
+</div>
+
+<div class="refresh-row">
+  <span class="last-updated" id="lastUpdated"></span>
+  <button class="secondary" id="refreshBtn" style="padding:6px 12px; font-size:12px;">รีเฟรช</button>
+</div>
+
+<div class="config">
+  <div class="label">แหล่งข้อมูล</div>
+  <div class="config-row">
+    <input type="text" id="sourceUrl" placeholder="วาง Google Apps Script Web App URL ที่นี่">
+    <button id="saveBtn">บันทึก</button>
+  </div>
+  <div class="config-note">
+    บอทบน Termux ต้องยิง POST บันทึกทุกครั้งที่เทรด ไปที่ Apps Script Web App ที่ผูกกับ Google Sheet แผงนี้จะดึงข้อมูลจากชีทเดียวกันมาแสดง (URL จะถูกจำไว้ในเครื่องนี้เท่านั้น)
+  </div>
+</div>
+
+<script>
+const els = {
+  tickerContent: document.getElementById('tickerContent'),
+  dateLabel: document.getElementById('dateLabel'),
+  statusDot: document.getElementById('statusDot'),
+  holdingValue: document.getElementById('holdingValue'),
+  priceValue: document.getElementById('priceValue'),
+  heartbeatLine: document.getElementById('heartbeatLine'),
+  rangeRow: document.getElementById('rangeRow'),
+  allTimeNote: document.getElementById('allTimeNote'),
+  statTrades: document.getElementById('statTrades'),
+  statPnl: document.getElementById('statPnl'),
+  statWinRate: document.getElementById('statWinRate'),
+  statWinRateSub: document.getElementById('statWinRateSub'),
+  statAvgPnl: document.getElementById('statAvgPnl'),
+  statBuyHold: document.getElementById('statBuyHold'),
+  statBuyHoldSub: document.getElementById('statBuyHoldSub'),
+  statLoseStreak: document.getElementById('statLoseStreak'),
+  statWalletValue: document.getElementById('statWalletValue'),
+  statUnrealized: document.getElementById('statUnrealized'),
+  statUnrealizedSub: document.getElementById('statUnrealizedSub'),
+  statBestTrade: document.getElementById('statBestTrade'),
+  statBestTradeSub: document.getElementById('statBestTradeSub'),
+  statWorstTrade: document.getElementById('statWorstTrade'),
+  statWorstTradeSub: document.getElementById('statWorstTradeSub'),
+  statFeeTotal: document.getElementById('statFeeTotal'),
+  statFeeTotalSub: document.getElementById('statFeeTotalSub'),
+  statAvgHoldTime: document.getElementById('statAvgHoldTime'),
+  statMaxDrawdown: document.getElementById('statMaxDrawdown'),
+  statMaxDrawdownSub: document.getElementById('statMaxDrawdownSub'),
+  vsVerdict: document.getElementById('vsVerdict'),
+  vsRealTrades: document.getElementById('vsRealTrades'),
+  vsRealPnl: document.getElementById('vsRealPnl'),
+  vsRealWin: document.getElementById('vsRealWin'),
+  vsShadowTrades: document.getElementById('vsShadowTrades'),
+  vsShadowPnl: document.getElementById('vsShadowPnl'),
+  vsShadowWin: document.getElementById('vsShadowWin'),
+  vsNote: document.getElementById('vsNote'),
+  currencyRow: document.getElementById('currencyRow'),
+  exportBtn: document.getElementById('exportBtn'),
+  tradeList: document.getElementById('tradeList'),
+  dailyTable: document.getElementById('dailyTable'),
+  lastUpdated: document.getElementById('lastUpdated'),
+  sourceUrl: document.getElementById('sourceUrl'),
+  saveBtn: document.getElementById('saveBtn'),
+  refreshBtn: document.getElementById('refreshBtn'),
+  pnlChart: document.getElementById('pnlChart'),
+};
+
+let lastData = null;
+let currentRange = 'today';
+let currentCurrency = 'USD';
+let usdThbRate = null; // fetched lazily, cached for the session
+
+async function getUsdThbRate(){
+  if(usdThbRate) return usdThbRate;
+  try{
+    const res = await fetch('https://open.er-api.com/v6/latest/USD');
+    const data = await res.json();
+    usdThbRate = data.rates && data.rates.THB ? data.rates.THB : 36; // fallback approx if API fails
+  }catch(e){
+    usdThbRate = 36; // rough fallback so the UI still works offline
+  }
+  return usdThbRate;
+}
+
+function fmtMoney(usdValue){
+  if(usdValue === null || usdValue === undefined || isNaN(usdValue)) return '—';
+  if(currentCurrency === 'THB' && usdThbRate){
+    return (usdValue * usdThbRate).toLocaleString('th-TH', {maximumFractionDigits:2}) + ' ฿';
+  }
+  return usdValue.toLocaleString('en-US', {maximumFractionDigits:2}) + ' USD';
+}
+
+// Canonical order contract: trades[] is chronological ASCENDING (oldest -> newest),
+// matching how Google Sheets appendRow() naturally stores + doGet() reads rows.
+const SAMPLE = {
+  currentHolding: "USDT",
+  currentPrice: 592.10,
+  trades: [
+    {ts:"2026-07-04T20:41:00", side:"BUY",  price:579.90, qty:0.28, pnl_pct:null, walletValueUsdt:162.37, feeUsdt:0.162},
+    {ts:"2026-07-05T08:05:00", side:"SELL", price:588.70, qty:0.279, pnl_pct:1.48, walletValueUsdt:164.16, feeUsdt:0.164},
+    {ts:"2026-07-05T14:33:00", side:"BUY",  price:580.20, qty:0.281, pnl_pct:null, walletValueUsdt:164.16, feeUsdt:0.164},
+    {ts:"2026-07-06T09:12:00", side:"SELL", price:589.40, qty:0.28, pnl_pct:1.52, walletValueUsdt:165.03, feeUsdt:0.165},
+  ],
+  shadowTrades: [
+    {ts:"2026-07-04T21:10:00", side:"BUY",  price:580.50, qty:0.28, pnl_pct:null, walletValueUsdt:162.37, feeUsdt:0.122},
+    {ts:"2026-07-05T09:20:00", side:"SELL", price:589.10, qty:0.279, pnl_pct:1.35, walletValueUsdt:164.56, feeUsdt:0.244},
+    {ts:"2026-07-05T15:02:00", side:"BUY",  price:580.90, qty:0.283, pnl_pct:null, walletValueUsdt:164.56, feeUsdt:0.123},
+    {ts:"2026-07-06T10:44:00", side:"SELL", price:588.20, qty:0.283, pnl_pct:1.25, walletValueUsdt:165.62, feeUsdt:0.247},
+  ]
+};
+
+function fmtTime(ts){
+  const d = new Date(ts);
+  return d.toLocaleString('th-TH', {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+}
+
+function dayKey(ts){
+  const d = new Date(ts);
+  return d.toLocaleDateString('sv-SE'); // yyyy-mm-dd in local time, stable sort key
+}
+
+function fmtDayLabel(key){
+  const d = new Date(key + 'T00:00:00');
+  return d.toLocaleDateString('th-TH', {day:'numeric', month:'short', year:'numeric'});
+}
+
+function rangeStart(range){
+  const now = new Date();
+  if(range === 'today'){
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  }
+  if(range === '3d') return new Date(now.getTime() - 3*24*60*60*1000);
+  if(range === '7d') return new Date(now.getTime() - 7*24*60*60*1000);
+  if(range === '30d') return new Date(now.getTime() - 30*24*60*60*1000);
+  return null; // 'all'
+}
+
+function filterByRange(trades, range){
+  const start = rangeStart(range);
+  if(!start) return trades;
+  return trades.filter(t => new Date(t.ts) >= start);
+}
+
+function computeStats(filteredTrades, currentPrice){
+  const sells = filteredTrades.filter(t => t.side === 'SELL' && typeof t.pnl_pct === 'number');
+  const pnlSum = sells.reduce((a,t)=>a+t.pnl_pct, 0);
+  const wins = sells.filter(t => t.pnl_pct >= 0).length;
+  const winRate = sells.length ? (wins / sells.length * 100) : null;
+  const avgPnl = sells.length ? (pnlSum / sells.length) : null;
+
+  // longest losing streak, walked in chronological order (filteredTrades is ascending)
+  let streak = 0, maxStreak = 0;
+  sells.forEach(t=>{
+    if(t.pnl_pct < 0){ streak++; maxStreak = Math.max(maxStreak, streak); }
+    else streak = 0;
+  });
+
+  // buy & hold comparison: price of first trade in range vs current price
+  let buyHoldPct = null;
+  if(filteredTrades.length && currentPrice){
+    const startPrice = filteredTrades[0].price;
+    if(startPrice) buyHoldPct = (currentPrice - startPrice) / startPrice * 100;
+  }
+
+  // best / worst trade (by pnl_pct among sells in range)
+  let best = null, worst = null;
+  sells.forEach(t=>{
+    if(!best || t.pnl_pct > best.pnl_pct) best = t;
+    if(!worst || t.pnl_pct < worst.pnl_pct) worst = t;
+  });
+
+  return { tradesCount: filteredTrades.length, pnlSum, winRate, avgPnl, maxStreak, buyHoldPct, best, worst };
+}
+
+function renderDailyBreakdown(filteredTrades){
+  if(filteredTrades.length === 0){
+    els.dailyTable.innerHTML = '<div class="empty">ยังไม่มีข้อมูล</div>';
+    return;
+  }
+  const groups = {};
+  filteredTrades.forEach(t=>{
+    const key = dayKey(t.ts);
+    if(!groups[key]) groups[key] = [];
+    groups[key].push(t);
+  });
+  const keys = Object.keys(groups).sort().reverse(); // newest day first
+  els.dailyTable.innerHTML = keys.map(key=>{
+    const dayTrades = groups[key];
+    const daySells = dayTrades.filter(t => t.side === 'SELL' && typeof t.pnl_pct === 'number');
+    const dayPnl = daySells.reduce((a,t)=>a+t.pnl_pct, 0);
+    const dayWinRate = daySells.length ? (daySells.filter(t=>t.pnl_pct>=0).length/daySells.length*100) : null;
+    const pnlColor = dayPnl >= 0 ? 'var(--green)' : 'var(--red)';
+    const pnlDisplay = daySells.length > 0
+      ? `<span style="color:${pnlColor}">${dayPnl>=0?'+':''}${dayPnl.toFixed(2)}%</span>`
+      : `<span style="color:var(--muted); font-size:11px;">เปิดไม้ (รอปิด)</span>`;
+    return `
+      <div class="daily-row">
+        <div>
+          <div class="daily-date">${fmtDayLabel(key)}</div>
+          <div class="daily-meta">${dayTrades.length} เทรด${dayWinRate!==null ? ` · Win ${dayWinRate.toFixed(0)}%` : ''}</div>
+        </div>
+        <div class="daily-right">
+          ${pnlDisplay}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function renderWalletAndUnrealized(){
+  if(!lastData) return;
+  const trades = lastData.trades || [];
+
+  // wallet value: prefer walletValueUsdt from the latest trade row if the bot sends it;
+  // fall back to a rough estimate from qty * currentPrice for older data that predates this field.
+  let walletUsd = null;
+  if(trades.length){
+    const last = trades[trades.length-1];
+    if(typeof last.walletValueUsdt === 'number'){
+      walletUsd = last.walletValueUsdt;
+    } else if(lastData.currentHolding === 'BNB' && last.qty && lastData.currentPrice){
+      walletUsd = last.qty * lastData.currentPrice;
+    } else if(lastData.currentHolding === 'USDT' && typeof last.walletValueUsdt !== 'number'){
+      walletUsd = null; // unknown without the field, avoid guessing wrong
+    }
+  }
+  els.statWalletValue.textContent = walletUsd !== null ? fmtMoney(walletUsd) : 'ต้องอัปเดตบอทให้ส่ง walletValueUsdt';
+
+  // unrealized pnl: only meaningful when currently holding BNB (an open position)
+  if(lastData.currentHolding === 'BNB' && trades.length){
+    // find the most recent BUY (should be the last trade if state is consistent)
+    const lastBuy = [...trades].reverse().find(t => t.side === 'BUY');
+    if(lastBuy && lastData.currentPrice){
+      const unrealizedPct = (lastData.currentPrice - lastBuy.price) / lastBuy.price * 100;
+      els.statUnrealized.textContent = (unrealizedPct>=0?'+':'') + unrealizedPct.toFixed(2) + '%';
+      els.statUnrealized.className = 'value ' + (unrealizedPct>=0?'pos':'neg');
+      els.statUnrealizedSub.textContent = `ซื้อไว้ที่ ${lastBuy.price.toFixed(2)}`;
+    } else {
+      els.statUnrealized.textContent = '—';
+      els.statUnrealized.className = 'value';
+      els.statUnrealizedSub.textContent = '';
+    }
+  } else {
+    els.statUnrealized.textContent = '—';
+    els.statUnrealized.className = 'value';
+    els.statUnrealizedSub.textContent = 'ไม่มีโพซิชั่นเปิดอยู่ (ถือ USDT)';
+  }
+}
+
+function exportCsv(){
+  if(!lastData || !lastData.trades || !lastData.trades.length){
+    alert('ยังไม่มีข้อมูลให้ export');
+    return;
+  }
+  const rows = [['Timestamp','Side','Price','Qty','PnL_Pct','WalletValueUSDT']];
+  lastData.trades.forEach(t=>{
+    rows.push([t.ts, t.side, t.price, t.qty, t.pnl_pct ?? '', t.walletValueUsdt ?? '']);
+  });
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `bnb-trades-${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function computeExtraStats(filteredTrades){
+  // fee: sum of feeUsdt across all trades that reported it
+  const feesKnown = filteredTrades.filter(t => typeof t.feeUsdt === 'number');
+  const totalFee = feesKnown.reduce((a,t)=>a+t.feeUsdt, 0);
+  const missingFeeCount = filteredTrades.length - feesKnown.length;
+
+  // avg holding time: pair each SELL with the BUY immediately before it in sequence
+  const holdDurationsMs = [];
+  for(let i=1; i<filteredTrades.length; i++){
+    if(filteredTrades[i].side === 'SELL' && filteredTrades[i-1].side === 'BUY'){
+      const ms = new Date(filteredTrades[i].ts) - new Date(filteredTrades[i-1].ts);
+      if(ms > 0) holdDurationsMs.push(ms);
+    }
+  }
+  const avgHoldMs = holdDurationsMs.length ? holdDurationsMs.reduce((a,b)=>a+b,0)/holdDurationsMs.length : null;
+
+  // max drawdown: based on walletValueUsdt sequence (the real equity curve), chronological ascending
+  const equityPoints = filteredTrades.filter(t => typeof t.walletValueUsdt === 'number').map(t => t.walletValueUsdt);
+  let maxDrawdownPct = null, ddFromValue = null, ddToValue = null;
+  if(equityPoints.length >= 2){
+    let peak = equityPoints[0];
+    let worstDd = 0;
+    ddFromValue = equityPoints[0];
+    ddToValue = equityPoints[0];
+    equityPoints.forEach(v=>{
+      if(v > peak) peak = v;
+      const dd = (peak - v) / peak * 100;
+      if(dd >= worstDd){ worstDd = dd; ddFromValue = peak; ddToValue = v; }  // >= ไม่ใช่ > กัน worstDd ค้าง 0 ตอนไม่เคยร่วงเลย
+    });
+    maxDrawdownPct = worstDd;
+  }
+
+  return { totalFee, missingFeeCount, avgHoldMs, maxDrawdownPct, ddFromValue, ddToValue };
+}
+
+function fmtDuration(ms){
+  const hours = ms / (1000*60*60);
+  if(hours < 1) return Math.round(ms/60000) + ' นาที';
+  if(hours < 48) return hours.toFixed(1) + ' ชม.';
+  return (hours/24).toFixed(1) + ' วัน';
+}
+
+const MIN_TRADES_FOR_VERDICT = 5; // ต้องมีอย่างน้อยกี่ไม้ปิดต่อฝั่ง ก่อนจะกล้าฟันธงว่าใครดีกว่า
+
+function computeVsStats(trades){
+  const sells = trades.filter(t => t.side === 'SELL' && typeof t.pnl_pct === 'number');
+  const pnlSum = sells.reduce((a,t)=>a+t.pnl_pct, 0);
+  const winRate = sells.length ? (sells.filter(t=>t.pnl_pct>=0).length/sells.length*100) : null;
+  return { closedTrades: sells.length, pnlSum, winRate };
+}
+
+function renderComparison(){
+  if(!lastData) return;
+  const realTrades = filterByRange(lastData.trades || [], currentRange);
+  const shadowTrades = filterByRange(lastData.shadowTrades || [], currentRange);
+
+  const real = computeVsStats(realTrades);
+  const shadow = computeVsStats(shadowTrades);
+
+  els.vsRealTrades.textContent = real.closedTrades;
+  els.vsRealPnl.textContent = (real.pnlSum>=0?'+':'') + real.pnlSum.toFixed(2) + '%';
+  els.vsRealPnl.style.color = real.pnlSum>=0 ? 'var(--green)' : 'var(--red)';
+  els.vsRealWin.textContent = real.winRate!==null ? real.winRate.toFixed(0)+'%' : '—';
+
+  els.vsShadowTrades.textContent = shadow.closedTrades;
+  els.vsShadowPnl.textContent = (shadow.pnlSum>=0?'+':'') + shadow.pnlSum.toFixed(2) + '%';
+  els.vsShadowPnl.style.color = shadow.pnlSum>=0 ? 'var(--green)' : 'var(--red)';
+  els.vsShadowWin.textContent = shadow.winRate!==null ? shadow.winRate.toFixed(0)+'%' : '—';
+
+  const minSide = Math.min(real.closedTrades, shadow.closedTrades);
+  if(minSide < MIN_TRADES_FOR_VERDICT){
+    els.vsVerdict.className = 'vs-verdict pending';
+    els.vsVerdict.textContent = `ยังไม่มีข้อมูลพอเทียบ (ต้องการอย่างน้อย ${MIN_TRADES_FOR_VERDICT} ไม้ปิดต่อฝั่ง ตอนนี้มี ${minSide})`;
+    els.vsNote.textContent = '';
+  } else {
+    const diff = real.pnlSum - shadow.pnlSum;
+    if(Math.abs(diff) < 0.01){
+      els.vsVerdict.className = 'vs-verdict pending';
+      els.vsVerdict.textContent = 'สูสี ยังบอกไม่ได้ว่าใครดีกว่า';
+    } else if(diff > 0){
+      els.vsVerdict.className = 'vs-verdict real';
+      els.vsVerdict.textContent = `🔒 Fixed นำอยู่ +${diff.toFixed(2)}%`;
+    } else {
+      els.vsVerdict.className = 'vs-verdict shadow';
+      els.vsVerdict.textContent = `📐 Dynamic นำอยู่ +${Math.abs(diff).toFixed(2)}%`;
+    }
+    els.vsNote.textContent = minSide < 15
+      ? `⚠️ ยังมีข้อมูลน้อย (${minSide} ไม้) ผลอาจเปลี่ยนได้มาก แนะนำรอถึง 15+ ไม้ก่อนเชื่อทิศทางนี้จริงจัง`
+      : `อิงจาก ${real.closedTrades} ไม้ (Fixed) vs ${shadow.closedTrades} ไม้ (Dynamic) ในช่วงที่เลือก`;
+  }
+}
+
+function applyRange(){
+  if(!lastData) return;
+  const trades = lastData.trades || [];
+  const filtered = filterByRange(trades, currentRange);
+  const stats = computeStats(filtered, lastData.currentPrice);
+  const sellsForChart = filtered.filter(t => t.side === 'SELL' && typeof t.pnl_pct === 'number');
+
+  els.statTrades.textContent = stats.tradesCount;
+
+  els.statPnl.textContent = (stats.pnlSum>=0?'+':'') + stats.pnlSum.toFixed(2) + '%';
+  els.statPnl.className = 'value ' + (stats.pnlSum>=0?'pos':'neg');
+
+  if(stats.winRate===null){
+    els.statWinRate.textContent = '—';
+    els.statWinRate.className = 'value';
+    els.statWinRateSub.textContent = '';
+  } else {
+    els.statWinRate.textContent = stats.winRate.toFixed(0) + '%';
+    els.statWinRate.className = 'value ' + (stats.winRate>=50?'pos':'neg');
+    const sellsCount = filtered.filter(t=>t.side==='SELL' && typeof t.pnl_pct==='number').length;
+    els.statWinRateSub.textContent = `จาก ${sellsCount} ไม้ขาย`;
+  }
+
+  if(stats.avgPnl===null){
+    els.statAvgPnl.textContent = '—';
+    els.statAvgPnl.className = 'value';
+  } else {
+    els.statAvgPnl.textContent = (stats.avgPnl>=0?'+':'') + stats.avgPnl.toFixed(2) + '%';
+    els.statAvgPnl.className = 'value ' + (stats.avgPnl>=0?'pos':'neg');
+  }
+
+  if(stats.buyHoldPct===null){
+    els.statBuyHold.textContent = '—';
+    els.statBuyHold.className = 'value';
+    els.statBuyHoldSub.textContent = '';
+  } else {
+    const delta = stats.pnlSum - stats.buyHoldPct;
+    els.statBuyHold.textContent = (delta>=0?'+':'') + delta.toFixed(2) + '%';
+    els.statBuyHold.className = 'value ' + (delta>=0?'pos':'neg');
+    els.statBuyHoldSub.textContent = `ซื้อเก็บเฉยๆ จะได้ ${stats.buyHoldPct>=0?'+':''}${stats.buyHoldPct.toFixed(2)}%`;
+  }
+
+  els.statLoseStreak.textContent = stats.maxStreak > 0 ? `${stats.maxStreak} ครั้ง` : '—';
+  els.statLoseStreak.className = 'value ' + (stats.maxStreak >= 3 ? 'neg' : '');
+
+  // best / worst trade cards
+  if(stats.best){
+    els.statBestTrade.textContent = (stats.best.pnl_pct>=0?'+':'') + stats.best.pnl_pct.toFixed(2) + '%';
+    els.statBestTrade.className = 'value pos';
+    els.statBestTradeSub.textContent = fmtTime(stats.best.ts);
+  } else {
+    els.statBestTrade.textContent = '—';
+    els.statBestTrade.className = 'value';
+    els.statBestTradeSub.textContent = '';
+  }
+  if(stats.worst){
+    els.statWorstTrade.textContent = (stats.worst.pnl_pct>=0?'+':'') + stats.worst.pnl_pct.toFixed(2) + '%';
+    els.statWorstTrade.className = 'value ' + (stats.worst.pnl_pct>=0?'pos':'neg');
+    els.statWorstTradeSub.textContent = fmtTime(stats.worst.ts);
+  } else {
+    els.statWorstTrade.textContent = '—';
+    els.statWorstTrade.className = 'value';
+    els.statWorstTradeSub.textContent = '';
+  }
+
+  // fee / avg hold time / max drawdown
+  const extra = computeExtraStats(filtered);
+
+  els.statFeeTotal.textContent = fmtMoney(extra.totalFee);
+  els.statFeeTotal.className = 'value';
+  els.statFeeTotalSub.textContent = extra.missingFeeCount > 0 ? `ไม่มีข้อมูลค่าธรรมเนียม ${extra.missingFeeCount} เทรดเก่า` : '';
+
+  els.statAvgHoldTime.textContent = extra.avgHoldMs !== null ? fmtDuration(extra.avgHoldMs) : '—';
+
+  if(extra.maxDrawdownPct !== null && typeof extra.ddFromValue === 'number' && typeof extra.ddToValue === 'number'){
+    els.statMaxDrawdown.textContent = '-' + extra.maxDrawdownPct.toFixed(2) + '%';
+    els.statMaxDrawdown.className = 'value ' + (extra.maxDrawdownPct >= 5 ? 'neg' : '');
+    els.statMaxDrawdownSub.textContent = `จาก ${extra.ddFromValue.toFixed(2)} ลงไป ${extra.ddToValue.toFixed(2)} USD`;
+  } else {
+    els.statMaxDrawdown.textContent = '—';
+    els.statMaxDrawdown.className = 'value';
+    els.statMaxDrawdownSub.textContent = 'ต้องมีอย่างน้อย 2 จุดข้อมูลมูลค่าพอร์ต';
+  }
+
+  // wallet value + unrealized pnl (use full trade history, not range-filtered — these are "right now" facts)
+  renderWalletAndUnrealized();
+  renderComparison();
+
+  // trade list (range-filtered, newest first)
+  if(filtered.length===0){
+    els.tradeList.innerHTML = '<div class="empty">ไม่มีเทรดในช่วงนี้</div>';
+  } else {
+    els.tradeList.innerHTML = filtered.slice().reverse().map(t=>{
+      const tagClass = t.side==='SELL' ? 'sell' : 'buy';
+      const pnlHtml = typeof t.pnl_pct==='number'
+        ? `<div class="trade-pnl" style="color:${t.pnl_pct>=0?'var(--green)':'var(--red)'}">${t.pnl_pct>=0?'+':''}${t.pnl_pct.toFixed(2)}%</div>`
+        : `<div class="trade-pnl" style="color:var(--muted)">—</div>`;
+      return `
+        <div class="trade-row">
+          <div class="trade-left">
+            <span class="side-tag ${tagClass}">${t.side}</span>
+            <div>
+              <div class="trade-meta">${fmtTime(t.ts)}</div>
+              <div class="trade-meta">${t.qty} BNB</div>
+            </div>
+          </div>
+          <div class="trade-right">
+            <div class="trade-price">${t.price.toFixed(2)}</div>
+            ${pnlHtml}
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  renderDailyBreakdown(filtered);
+  drawChart(sellsForChart);
+}
+
+function render(data){
+  lastData = data;
+  const trades = data.trades || [];
+  els.dateLabel.textContent = new Date().toLocaleDateString('th-TH', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+  els.holdingValue.textContent = data.currentHolding || '—';
+  els.priceValue.textContent = data.currentPrice ? data.currentPrice.toFixed(2) + ' USDT' : '—';
+  els.statusDot.className = 'dot';
+
+  // heartbeat: time since last trade (based on full trade history, not range-filtered)
+  if(trades.length){
+    const lastTs = new Date(trades[trades.length-1].ts);
+    const diffMs = Date.now() - lastTs.getTime();
+    const diffH = diffMs / (1000*60*60);
+    let label;
+    if(diffH < 1) label = Math.round(diffMs/60000) + ' นาทีที่แล้ว';
+    else if(diffH < 48) label = diffH.toFixed(1) + ' ชั่วโมงที่แล้ว';
+    else label = Math.round(diffH/24) + ' วันที่แล้ว';
+    els.heartbeatLine.textContent = `เทรดล่าสุด: ${label} (${fmtTime(trades[trades.length-1].ts)})`;
+  } else {
+    els.heartbeatLine.textContent = 'เทรดล่าสุด: ยังไม่มีข้อมูล';
+  }
+
+  // all-time reference line (independent of range selector)
+  const allSells = trades.filter(t => t.side === 'SELL' && typeof t.pnl_pct === 'number');
+  const allPnl = allSells.reduce((a,t)=>a+t.pnl_pct, 0);
+  els.allTimeNote.textContent = `รวมทั้งหมด: ${trades.length} เทรด | กำไรสะสม ${allPnl>=0?'+':''}${allPnl.toFixed(2)}%`;
+
+  // ticker
+  if(trades.length){
+    const tickerHtml = trades.slice(0,8).map(t=>{
+      const c = t.side==='SELL' ? 'var(--green)':'var(--gold)';
+      const pnl = typeof t.pnl_pct==='number' ? ` (${t.pnl_pct>=0?'+':''}${t.pnl_pct.toFixed(2)}%)` : '';
+      return `<span style="color:${c}">${t.side} ${t.qty} BNB @ ${t.price.toFixed(2)}${pnl}</span>`;
+    }).join('');
+    els.tickerContent.innerHTML = tickerHtml + tickerHtml;
+  }
+
+  applyRange();
+  els.lastUpdated.textContent = 'อัปเดตล่าสุด ' + new Date().toLocaleTimeString('th-TH');
+}
+
+function drawChart(sells){
+  const canvas = els.pnlChart;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth, h = 140;
+  canvas.width = w*dpr; canvas.height = h*dpr;
+  ctx.scale(dpr,dpr);
+  ctx.clearRect(0,0,w,h);
+
+  // sells is already oldest -> newest (see canonical order contract), so no reverse needed here
+  let cum = 0;
+  const points = sells.map(t=>{ cum += t.pnl_pct; return cum; });
+
+  if(points.length < 2){
+    ctx.fillStyle = '#848E9C';
+    ctx.font = '12px Inter';
+    ctx.fillText('ต้องมีอย่างน้อย 2 รอบขายเพื่อวาดกราฟ', 8, h/2);
+    return;
+  }
+
+  const max = Math.max(...points, 0);
+  const min = Math.min(...points, 0);
+  const range = (max-min) || 1;
+  const pad = 10;
+
+  ctx.beginPath();
+  points.forEach((p,i)=>{
+    const x = pad + (i/(points.length-1)) * (w-pad*2);
+    const y = h - pad - ((p-min)/range) * (h-pad*2);
+    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  });
+  ctx.strokeStyle = '#F0B90B';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // fill under line
+  ctx.lineTo(pad + (w-pad*2), h-pad);
+  ctx.lineTo(pad, h-pad);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(240,185,11,0.08)';
+  ctx.fill();
+
+  // zero line
+  const zeroY = h - pad - ((0-min)/range) * (h-pad*2);
+  ctx.beginPath();
+  ctx.moveTo(pad, zeroY);
+  ctx.lineTo(w-pad, zeroY);
+  ctx.strokeStyle = '#2B3139';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+}
+
+async function loadFromSource(){
+  let url = null;
+  try{
+    url = localStorage.getItem('bnb_monitor_source_url');
+  }catch(e){}
+
+  if(url){
+    els.sourceUrl.value = url;
+    try{
+      const res = await fetch(url);
+      const data = await res.json();
+      render(data);
+      return;
+    }catch(e){
+      els.statusDot.className = 'dot off';
+      console.error('Fetch failed, showing sample data', e);
+    }
+  }
+  render(SAMPLE);
+}
+
+els.saveBtn.addEventListener('click', ()=>{
+  const url = els.sourceUrl.value.trim();
+  if(!url) return;
+  try{
+    localStorage.setItem('bnb_monitor_source_url', url);
+    els.saveBtn.textContent = 'บันทึกแล้ว';
+    setTimeout(()=>els.saveBtn.textContent='บันทึก', 1200);
+  }catch(e){}
+  loadFromSource();
+});
+
+els.refreshBtn.addEventListener('click', loadFromSource);
+
+els.rangeRow.querySelectorAll('.chip').forEach(chip=>{
+  chip.addEventListener('click', ()=>{
+    currentRange = chip.dataset.range;
+    els.rangeRow.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+    chip.classList.add('active');
+    applyRange();
+  });
+});
+
+els.currencyRow.querySelectorAll('.chip').forEach(chip=>{
+  chip.addEventListener('click', async ()=>{
+    currentCurrency = chip.dataset.currency;
+    els.currencyRow.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+    chip.classList.add('active');
+    if(currentCurrency === 'THB') await getUsdThbRate();
+    renderWalletAndUnrealized();
+  });
+});
+
+els.exportBtn.addEventListener('click', exportCsv);
+
+loadFromSource();
+</script>
+</body>
+</html>
